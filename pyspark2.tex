@@ -1,0 +1,181 @@
+\subsection{Common RDD operations}
+
+
+In order to create an RDD from an object the \texttt{parallelize()} method is used (we can pass the number of partitions as a second argument, the default is the core number of the machine):
+
+\begin{lstlisting}
+    >>> nums = sc.parallelize([1, 2, 3, 4, 5])
+\end{lstlisting}
+
+
+\texttt{glom()} is a transformation that creates a new RDD which will show (after using \texttt{collect()}) each element inside its correspondig partition:
+
+\begin{lstlisting}
+    >>> nums.glom().collect()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [[], [1], [], [], [2], [], [3], [], [], [], [4], [], [5]]
+\end{lstlisting}
+
+
+\texttt{count()} is an action that returns the count of the elements of an RDD:
+
+\begin{lstlisting}
+    >>> nums.count()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: 5
+\end{lstlisting}
+
+
+\texttt{map()} and \texttt{filter()} are the two most common transformations. \texttt{map()} takes a function and applies it to each element in the RDD, with the result of the function being the new value of each element in the resulting RDD (it's the map part from the MapReduce framework). Its return type does not have to be the same as the input type:
+
+\begin{lstlisting}
+    >>> nums = sc.parallelize([1, 2, 3, 4])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> squared = nums.map(lambda x: x * x)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [1, 4, 9, 16]
+\end{lstlisting}
+
+Another way of getting the results instead of using \texttt{collect()} is to print them with a \texttt{for} from inside the Python Shell (remember to respect the Python indentation):
+
+\begin{lstlisting}
+    >>> for num in squared:
+            print(num)
+\end{lstlisting}
+
+\texttt{filter()} takes in a function and returns a RDD that only keeps the filtered elements from the original RDD:
+
+\begin{lstlisting}
+    >>> lines = sc.parallelize(["ciao bello", "aaa bbb"])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> pairs = lines.map(lambda x: (x.split(" ")[0], x))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('ciao', 'ciao bello'), ('aaa', 'aaa bbb')]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> filtered = pairs.filter(lambda x : len(x[1]) < 10)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('aaa', 'aaa bbb')]
+\end{lstlisting}
+
+Here we can see why it worked:
+
+\begin{lstlisting}
+    >>> length = pairs.map(lambda x:(x[0], len(x[1])))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('ciao', 10), ('aaa', 7)]
+\end{lstlisting}
+
+
+\texttt{flatMap()} is a transformation that gives the result of a \texttt{map()} but with a lower list level:
+
+\begin{lstlisting}
+    >>> lines = sc.parallelize(["hello world", "hi"])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> words = lines.map(lambda line: line.split(" "))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [['hello', 'world'], ['hi']]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> wordsFlat = lines.flatMap(lambda line: line.split(" "))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: ['hello', 'world', 'hi']
+\end{lstlisting}
+
+
+\texttt{reduce()} is an action that applies a function on two elements of an RDD at a time (it's the reduce part from the MapReduce framework):
+
+\begin{lstlisting}
+    >>> nums = sc.parallelize([1, 2, 3, 4, 5])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> sum = nums.reduce(lambda x, y: x + y)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: 15
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> b = nums.map(lambda x: (x,1))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [(1, 1), (2, 1), (3, 1), (4, 1), (5, 1)]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> b.reduce(lambda x,y: (x[0]+y[0], x[1]+y[1]))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: (15,5) (15 is the sum, 5 is the number of elements)
+\end{lstlisting}
+
+
+\texttt{aggregate()} is a generalization of the \texttt{fold()} method (which we will not show), which is a generalization of the \texttt{reduce()} method.
+It follows the same principle of the others of executing the operations inside the single partitions, then combines the results together. It takes the following arguments:
+
+\begin{itemize}
+
+    \item \texttt{zeroValue}: initial value to be used for each partition in aggregation; this value would be used to initialize the accumulator (usually \texttt{0} for integers and \texttt{Nil} for collections);
+
+    \item \texttt{seqOp}: this operator is used to accumulate the results inside each partition, and stores the running accumulated result to the accumulator;
+
+    \item \texttt{combOp}: this operator is used to combine the results of all partitions of the accumulator.
+
+\end{itemize}
+
+Example:
+
+\begin{lstlisting}
+    >>> nums = sc.parallelize([1, 2, 3, 4, 5])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> sumCount = nums.aggregate((0, 0), (lambda acc, value: (acc[0] + value, acc[1] + 1)), (lambda acc1, acc2: (acc1[0] + acc2[0], acc1[1] + acc2[1])))
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> print(sumCount)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: (15,5)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> print(sumCount[0] / float(sumCount[1]))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: 3.0 (the average)
+\end{lstlisting}
+
+
+Spark provides several descriptive statistics operations on RDDs containing numeric data, like \texttt{mean()}, \texttt{sum()}, \texttt{max()}, \texttt{min()}, \texttt{variance()}, \texttt{stdev()} etc.

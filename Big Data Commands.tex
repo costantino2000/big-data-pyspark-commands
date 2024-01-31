@@ -1,0 +1,63 @@
+\documentclass[12pt]{article}
+
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage[english]{babel}
+\usepackage[linktoc=all,hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{upquote}
+\usepackage{listings}
+
+\lstset{
+  basicstyle=\ttfamily,   % monospaced font
+  breaklines=true,        % to not cut the code
+  columns=fullflexible    % to squeeze the code when needed
+}
+\geometry{a4paper, top = 3 cm, bottom = 3 cm, left = 2.5 cm, right = 2.5 cm}
+\setlength{\parindent}{0pt}
+
+\renewcommand{\familydefault}{\sfdefault}   % use sans serif font as default
+
+
+\title{Pyspark commands for Big Data}
+
+\author{Costantino Nieddu \& Pietro Max Congiu}
+
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+
+What is missing:
+
+- Explain combineByKey() and the broadcast variables better;
+
+- Check the screenshots in the slides to see if some commands need to be added;
+
+- Add examples of exercises with their solutions.
+
+\tableofcontents
+
+\newpage
+
+\input{pyspark1}
+
+\input{pyspark2}
+
+\input{pyspark3}
+
+\input{pyspark4}
+
+\input{pyspark5}
+
+\input{pyspark6}
+
+\newpage
+
+\input{hadoop}
+
+\end{document}

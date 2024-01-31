@@ -1,0 +1,138 @@
+\subsection{Partitioning and reading files}
+
+
+Spark programs can choose to control their RDDs' partitioning to reduce communication between the nodes.
+
+Partitioning is useful only when a dataset is reused multiple times in key-oriented operations such as joins.
+Spark lets the program ensure that a set of keys will appear together on the same node.
+For example, you might choose to hash-partition an RDD into 100 partitions so that keys that have the same hash value module 100 will appear on the same node.
+
+
+\texttt{repartition()} is used for specifying the number of partitions that an RDD must have, if not specified it will do it automatically based on the number of cores and size of the data.
+
+\texttt{partitionby()} is like \texttt{repartition()} but the elements with the same key will go in the same partition:
+
+\begin{lstlisting}
+    >>> pairs = sc.parallelize([1, 1, 2, 2, 3, 4, 4, 5, 5, 5, 6, 6, 7, 7]).map(lambda x: (x, x))
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> pairs.repartition(3).glom().collect()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [[(6, 6), (7, 7), (5, 5)], [(2, 2), (4, 4), (2, 2), (4, 4), (5, 5), (7, 7), (6, 6)], [(1, 1), (3, 3), (1, 1), (5, 5)]]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> pairs.partitionBy(3).glom().collect()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [[(3, 3), (6, 6), (6, 6)], [(1, 1), (4, 4), (4, 4), (1, 1), (7, 7), (7, 7)], [(2, 2), (2, 2), (5, 5), (5, 5), (5, 5)]]
+\end{lstlisting}
+
+
+\texttt{mapPartitions()} returns a new RDD by applying a function \textbf{to each partition} of it (instead of \textbf{each element} like \texttt{map()} does). Here is an example (remember that the parameter 2 in \texttt{parallelize()} is the number of partitions):
+
+\begin{lstlisting}
+    >>> rdd = sc.parallelize([1, 2, 3, 4], 2).glom().collect()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [[1, 2], [3, 4]]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def f(iterator):
+            yield sum(iterator)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> sums = rdd.mapPartitions(f)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [3, 7]
+\end{lstlisting}
+
+The function is executed once for each partition (instad of once for each element). This can be useful when the processing of each partition requires some initialization or setup that does not require to be done for each element. Here is an example with \texttt{map()}:
+
+\begin{lstlisting}
+    >>> def combineCtr(c1, c2):
+            return (c1[0] + c2[0], c1[1] + c2[1])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def basicAvg(nums):
+            sumCount = nums.map(lambda num: (num,1)).reduce(combineCtr)
+            return sumCount[0] / float(sumCount[1])
+\end{lstlisting}
+
+This function computes the average of the elements of the RDD by combining them together, but with \texttt{mapPartitions()} we can iterate on the whole partition by treating it as a list:
+
+\begin{lstlisting}
+    >>> def partitionCtr(nums):
+            sumCount = [0, 0]
+            for num in nums:
+                sumCount[0] += num
+                sumCount[1] += 1
+            return [sumCount]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def fastAvg(nums):
+            sumCount = nums.mapPartitions(partitionCtr).reduce(combineCtr)
+            return sumCount[0] / float(sumCount[1])
+\end{lstlisting}
+
+
+To load JSON data we need to first load the data as a text file and then map the values with a JSON parser. Here is an example for a file that has only one line:
+
+\begin{lstlisting}
+    >>> import json
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> input = sc.textFile("ex.json")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> data = input.map(lambda x: json.loads(x))
+\end{lstlisting}
+
+Here is an example for a file with multiple lines (\texttt{wholeTextFiles()} saves more files in a list of tuples where the first element is the path and the second one is the content):
+
+\begin{lstlisting}
+    >>> input = sc.wholeTextFiles("ex.json")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> data = input.map(lambda x: json.loads(x[1]))
+\end{lstlisting}
+
+\texttt{saveAsTextFile()} saves an RDD on an output file:
+
+\begin{lstlisting}
+    >>> data.map(lambda x:json.dumps(x)).saveAsTextFile("Output")
+\end{lstlisting}
+
+
+If we want to read csv files we need a support function:
+
+\begin{lstlisting}
+    >>> import csv, io
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def loadRecord(line):
+            input = io.StringIO(line)
+            reader = csv.DictReader(input, fieldnames=["name", "age", "year", "height"])
+            return reader.next()
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> input = sc.textFile("ex.csv").map(loadRecord)
+\end{lstlisting}
+
+If there are newlines embedded in fields there is the need to load each file in full.

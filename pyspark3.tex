@@ -1,0 +1,158 @@
+\subsection{Key/value pairs RDDs}
+
+
+Spark Paired RDDs are nothing but RDDs containing a key-value pair. Basically, key-value pair consists of a two linked data item in it. Here, the key is the identifier, whereas the value is the data corresponding to the key value. An example is what you would get from something like \texttt{RDD.map(lambda x: (x,x))}.
+
+When datasets are expressed as key/value pairs, it is common to aggregate statistics across elements with the same key.
+
+Spark has operations that combine values that have the same key. These operations return RDDs and are transformations instead of actions.
+
+
+\texttt{mapValues()} is similar to \texttt{map()}, but it ignores the key and apply the function to the value.
+
+\texttt{reduceByKey()} is similar to \texttt{reduce()}. It runs parallel reduce operations, one for each key in the dataset, where each operation combines values that have the same key. It returns a new RDD consisting of each key and the reduced value for that key:
+
+\begin{lstlisting}
+    >>> rdd = sc.parallelize([("panda",0), ("pink",3), ("pirate",3), ("panda",1), ("pink",4)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> rdd2 = rdd.mapValues(lambda x: (x, 1))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('panda', (0, 1)), ('pink', (3, 1)), ('pirate', (3, 1)), ('panda', (1, 1)), ('pink', (4, 1))]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> rdd3 = rdd2.reduceByKey(lambda x, y: (x[0] + y[0], x[1] + y[1]))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('pink', (7, 2)), ('panda', (1, 2)), ('pirate', (3, 1))]
+\end{lstlisting}
+
+
+\texttt{combineByKey()} is the most general of the per-key aggregation functions. Like \texttt{aggregate()}, it allows the user to return values of different type from the input data:
+
+\begin{lstlisting}
+    >>> nums = sc.parallelize([('coffee',1), ('coffee',2), ('panda',3), ('coffee',9)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> sumCount = nums.combineByKey((lambda x: (x,1)), (lambda x, y: (x[0] + y, x[1] + 1)), (lambda x, y: (x[0] + y[0], x[1] + y[1])))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('coffee', (12, 3)), ('panda', (3, 1))]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> res = sumCount.map(lambda x: (x[0], x[1][0]/x[1][1]))
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('coffee', 4.0), ('panda', 3.0)]
+\end{lstlisting}
+
+
+\texttt{groupByKey()} allows to automatically group data sharing the same key from a single RDD. It gives back an object of the type RDD[(K,Iterable[V])], where the iterable contains all the values associated with that key:
+
+\begin{lstlisting}
+    >>> rdd = sc.parallelize([("a", 1), ("b", 1), ("a", 1)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> rdd2 = rdd.groupByKey()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('b', iterable), ('a', iterable)]
+\end{lstlisting}
+
+If we then want to see the content of the iterables we can just use \texttt{mapValues(list)} on the RDD (which converts the iterables to lists):
+
+\begin{lstlisting}
+    >>> rdd3 = rdd2.mapValues(list)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('b', [1]), ('a', [1, 1])]
+\end{lstlisting}
+
+
+If we want to group data sharing the same key from \textbf{multiple} RDDs we can use \texttt{cogroup()}. It iterates over two RDDs sharing the same key type, K, with the respective value types V and W, and gives us back RDD[(K,(Iterable[V], Iterable[W]))]:
+
+\begin{lstlisting}
+    >>> data1 = sc.parallelize([("a", 3), ("b", 4), ("a", 1)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> data2 = sc.parallelize([("a", 13), ("b", 14), ("a", 11), ("c",1)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> group = data1.cogroup(data2)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('b', (iterable1, iterable2)), ('a', (iterable1, iterable2)), ('c', (iterable1, iterable2))]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> for el in group.collect():
+            print(el[0])
+            for el1 in el[1][0]:
+                print(el1)
+            for el1 in el[1][1]:
+                print(el1)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: b, 4, 14, a, 3, 1, 13, 11, c, 1
+\end{lstlisting}
+
+
+Joining data is one of the most common operations on a pair RDD. The Spark methods are:
+
+\begin{itemize}
+
+    \item \texttt{join()}: this is the inner join. Only keys present in both pair RDDs will be in the output;
+
+    \item \texttt{leftOuterJoin()} and \texttt{rightOuterJoin()}: both joins pair RDDs together by key, where one of the pair RDDs can be missing the key.
+
+\end{itemize}
+
+Examples:
+ 
+\begin{lstlisting}
+    >>> data1 = sc.parallelize([("a", 3), ("b", 4), ("a", 1)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> data2 = sc.parallelize([("a", 3), ("c", 4)])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> a = data1.join(data2)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('a', (3, 3)), ('a', (1, 3))]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> a = data1.leftOuterJoin(data2)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('b', (4, None)), ('a', (3, 3)), ('a', (1, 3))]
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> a = data1.rightOuterJoin(data2)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: [('a', (3, 3)), ('a', (1, 3)), ('c', (None, 4))]
+\end{lstlisting}

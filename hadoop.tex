@@ -1,0 +1,78 @@
+\section{Hadoop (Extra)}
+
+
+Help command:
+
+\begin{lstlisting}
+    $ hdfs dfs -help
+\end{lstlisting}
+
+
+Commands to see the state of nodes:
+
+\begin{itemize}
+
+\item NameNode:
+
+\begin{lstlisting}
+    $ hdfs getconf -namenodes
+\end{lstlisting}
+
+\item DataNode:
+
+\begin{lstlisting}
+    $ hdfs dfsadmin -report
+\end{lstlisting}
+
+\item SecondaryNameNode:
+
+\begin{lstlisting}
+    $ hdfs getconf -secondaryNameNodes
+\end{lstlisting}
+
+\item BackupNode:
+
+\begin{lstlisting}
+    $ hdfs getconf -backupNodes
+\end{lstlisting}
+
+\end{itemize}
+
+
+Command to see the folders in the dfs:
+
+\begin{lstlisting}
+    $ hdfs dfs -ls /
+\end{lstlisting}
+
+
+Command to create the folder of the users in the dfs:
+
+\begin{lstlisting}
+    $ hdfs dfs -mkdir /user
+\end{lstlisting}
+
+
+Command to create a folder in the dfs (in this case the home folder of an user):
+
+\begin{lstlisting}
+    $ hdfs dfs -mkdir /user/hduser
+\end{lstlisting}
+
+
+Commands to load local files on the dfs and vice versa:
+
+\begin{lstlisting}
+    $ hdfs dfs -put /home/hduser/input.txt /user/hduser
+\end{lstlisting}
+
+\begin{lstlisting}
+    $ hdfs dfs -get /user/hduser/input.txt /home/hduser
+\end{lstlisting}
+
+
+Command to visualize the content of a file in the dfs:
+
+\begin{lstlisting}
+    $ hdfs dfs -cat /user/hduser/input.txt
+\end{lstlisting}

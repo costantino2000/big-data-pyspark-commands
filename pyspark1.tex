@@ -1,0 +1,107 @@
+\section{Pyspark}
+
+
+\subsection{Introduction}
+
+
+In order to open the Pyspark shell you need to use the command \textbf{pyspark} (if you have it added to the PATH you can avoid writing the folder path):
+
+\begin{lstlisting}
+    $ /path_to_spark_folder/sbin/pyspark
+\end{lstlisting}
+
+
+Every Spark application consists of a driver program that launches various parallel operations on a cluster.
+Driver programs access Spark through a SparkContext object representing a connection to the computing cluster (in the shell the SparkContext is automatically created and is called \texttt{"sc"}).
+
+Once you have a SparkContext you can use it to build RDDs, which are simply distributed collections of elements.
+In Spark all work is done either creating new RDDs, transforming existing RDDs, or calling operations on RDDs to compute a result.
+
+Spark, under the hood, distributes the data contained in a RDD across the cluster and parallelizes operations we perform on them.
+Each RDD is split in multiple partitions which may be computed on different nodes of the cluster.
+
+
+Users create RDDs in two ways:
+
+\begin{itemize}
+
+    \item By loading an external file;
+
+    \item By distributing a collection of objects in their driver program (for example a Python list).
+
+\end{itemize}
+
+Once created RDDs have 2 types of operations:
+
+\begin{itemize}
+
+    \item \textbf{Transformations} (construct a new RDD from a previous one);
+
+    \item \textbf{Actions} (compute a result based on a RDD).
+
+\end{itemize}
+
+
+An example of usage is reading a text file and keeping only the lines which contain the substring \texttt{"Python"} (pyspark must be ran from the root of the spark folder, the lines of the file will become the elements of the RDD):
+
+\begin{lstlisting}
+    >>> lines = sc.textFile("README.md")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> pythonLines = lines.filter(lambda line: "Python" in line)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> pythonLines.collect()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: ['high-level APIs in Scala, Java, Python, and R, and an optimized engine that', '## Interactive Python Shell', 'Alternatively, if you prefer Python, you can use the Python shell:']
+\end{lstlisting}
+
+\textbf{Note}: when you will read "result:" in the next commands what's on the right will be the output of the \texttt{collect()} method (unless a method like \texttt{count()} is used before it).
+
+The \texttt{filter()} function is a transformation, it creates a new RDD by using a lambda function, which can also be an externally defined function (by using \texttt{def}).
+
+
+Here is another example with the \texttt{union()} method (it creates a new RDD which contains the union of the former two):
+
+\begin{lstlisting}
+    >>> inputRDD = sc.textFile("log.txt")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> errorsRDD = inputRDD.filter(lambda x: "error" in x)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> warningsRDD = inputRDD.filter(lambda x: "warning" in x)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> badLinesRDD = errorsRDD.union(warningsRDD)
+\end{lstlisting}
+
+
+Spark computes RDDs in a lazy fashion, that is \textbf{the first time they are used in an action}. This means that transformations are not applied until an action is executed to the RDDs.
+
+RDDs have a \texttt{collect()} method to retrieve the entire RDD (the one in the first example) inside a list. To use \texttt{collect()} the entire dataset must fit in memory on a single machine, so it can't be used on large datasets.
+
+Because of this, when using \texttt{textFile()} Spark does not load and store all the lines of the selected file. With the first action it will be fully loaded and all the transformations before it will be executed.
+
+
+Calling the method \texttt{first()}, Spark scans the file until it finds the first matching line:
+
+\begin{lstlisting}
+    >>> firstLine = pythonLines.first()
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: 'high-level APIs in Scala, Java, Python, and R, and an optimized engine that'
+\end{lstlisting}
+
+
+RDDs are recomputed each time there is an action on them. If we want to reuse an RDD in multiple actions, we can use the \texttt{persist()} method.
+After computing it the first time, Spark will store the RDD contents in memory (partitioned across the cluster) and will reuse them in future actions without having to compute them every time. The method \texttt{unpersist()} can then be used to remove them from cache.
+Persisting RDDs on disk instead of memory is also possible with a parameter (look up the documentation).

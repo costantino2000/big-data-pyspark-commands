@@ -1,0 +1,47 @@
+\subsection{Submitting Python scripts}
+
+If you want to send a script instead of doing everything one line at a time you can use the command \texttt{spark-submit} along with the path to the script you want to run.
+
+But first, since by default the output will be verbose, you'll want to edit the configuration file, which can be created and opened this way:
+
+\begin{lstlisting}
+    cd /path_to_spark/conf
+\end{lstlisting}
+
+\begin{lstlisting}
+    cp log4j.properties.template log4j.properties
+\end{lstlisting}
+
+\begin{lstlisting}
+    nano log4j.properties
+\end{lstlisting}
+
+Then, change this line from:
+
+\begin{lstlisting}
+    log4j.rootCategory=INFO, console
+\end{lstlisting}
+
+to:
+
+\begin{lstlisting}
+    log4j.rootCategory=ERROR, console
+\end{lstlisting}
+
+This will reduce the amount of information the terminal will give you when running the scripts.
+
+Then, when creating a pyspark script, you'll always want to have these lines inside it:
+
+\begin{lstlisting}
+    from pyspark import SparkContext
+    ...
+    if __name__ == "__main__":
+        sc = SparkContext(appName="Name of the application")
+        sc.setLogLevel("ERROR")
+\end{lstlisting}
+
+\texttt{sc = SparkContext()} initializes the SparkContext, \texttt{sc.setLogLevel("ERROR")} reduces the verbosity of the output.
+
+In order to see the outputs you'll need to use \texttt{print(rdd.collect())} inside the script, since everything will happen in the terminal and not in the Pyspark shell.
+
+Sending the script with \texttt{spark-submit} will start spark, so it can take some time for each execution.

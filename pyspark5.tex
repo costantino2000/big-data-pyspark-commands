@@ -1,0 +1,119 @@
+\subsection{Shared variables}
+
+
+Shared variables are useful to share setup work across multiple data items:
+
+\begin{itemize}
+
+    \item \textbf{Accumulators} to aggregate information;
+
+    \item \textbf{Broadcast variables} to distribute efficiently large values.
+
+\end{itemize}
+
+
+Let's see a failed example of trying to use a counter (the \texttt{global} keyword calls a variable as global, the \texttt{foreach()} method applies a function to each element of the RDD):
+
+\begin{lstlisting}
+    >>> counter = 0
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> rdd = sc.parallelize([1, 2, 3, 4, 5])
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def increment_counter(x):
+            global counter
+            counter += 1
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> rdd.foreach(increment_counter)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> print(counter)
+\end{lstlisting}
+
+\begin{lstlisting}
+        result: 0
+\end{lstlisting}
+
+This didn't work because the work happens on the workers, but the global variable is stored on the master and is never updated.
+In order to create a real accumulator we need to use \texttt{sc.accumulator()} and pass it an initial value:
+
+\begin{lstlisting}
+    >>> file = sc.textFile(inputFile)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> blankLines = sc.accumulator(0)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def extractCallSigns(line):
+            global blankLines
+            if (line == ""):
+                blankLines.add(1)
+            return line.split(" ")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> callSigns = file.flatMap(extractCallSigns)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> callSigns.saveAsTextFile(outputDir + "/callsigns")
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> print(blankLines.value)
+\end{lstlisting}
+
+The actual value in the accumulator will be stored only after executing \texttt{saveAsTextFile()}, because the \texttt{flatMap()} method is lazy. The driver program can call the \texttt{value} property on the accumulator to access its value.
+
+
+It is possible to aggregate values from an entire RDD back to the driver program using actions like \texttt{reduce()}, but sometimes we need a simple way to aggregate values that, in the process of transforming an RDD, are generated at different scale or granularity than that of the RDD itself.
+
+Note that tasks on worker nodes cannot access the accumulator's \texttt{value} attribute from the point of view of these tasks, accumulators are write-only variables. This allows accumulators to be implemented efficiently, without having to communicate every update.
+
+For accumulators used in actions, Spark applies each task's update to each accumulator only once. For accumulators used in transformations instead of actions this guarantee does not exist.
+
+Spark supports type \texttt{Double}, \texttt{Long}, and \texttt{Float} for the accumulators, but also includes APIs to define custom accumulators types and aggregation operations, as long as the operation is commutative and associative.
+
+
+\textbf{Broadcast Variables} are the second type of shared variables. They allow the program to send a large, read-only value to all the worker nodes for use in one or more Spark operations (e.g. if you need to send a large read-only lookup table to all the nodes or a large feature vector in a machine learning algorithm).
+
+Let's see an unefficient example without broadcast variables. As Spark automatically sends all variables referenced in your closures to the worker nodes, this might be inefficient because the variable can be huge and we might need to use it for multiple parallel operations:
+
+\begin{lstlisting}
+    >>> signPrefixes = loadCallSignTable()
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> def processSignCount(sign_count, signPrefixes):
+            country = lookupCountry(sign_count[0], signPrefixes)
+            count = sign_count[1]
+            return (country, count)
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> countryContactCounts = (contactCounts.map(processSignCount).reduceByKey((lambda x, y: x + y)))
+\end{lstlisting}
+
+In this example when we called \texttt{map()} we passed a function to each worker that called a giant table. We can fix this by making \texttt{signPrefixes} a broadcast variable with \texttt{sc.broadcast()}:
+
+\begin{lstlisting}
+    >>> signPrefixes = sc.broadcast(loadCallSignTable())
+\end{lstlisting}
+
+\begin{lstlisting}
+    >>> country = lookupCountry(sign_count[0], signPrefixes.value)
+    ...
+\end{lstlisting}
+
+
+The easiest way to satisfy the read-only requirement is to broadcast a primitive value or a reference to an immutable object. In such cases, you won't be able to change the value of the broadcast variable except within the driver code.
+
+However, sometimes it can be more convenient or more efficient to broadcast a mutable object. If you do that, it is up to you to maintain the read-only condition. We must make sure that the code we run on our worker nodes does not try to do something like \texttt{val theArray = broadcastArray.value;} \texttt{theArray(0) = newValue}. When run in a worker node, that line will assign \texttt{newValue} to the first array element only in the copy of the array local to the worker node running the code; it will not change the contents of \texttt{broadcastArray.value} on any of the other worker nodes.
